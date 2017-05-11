@@ -1,8 +1,13 @@
 package com.example.ronaldfernandes.myminiproject;
 
 import android.Manifest;
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -12,6 +17,7 @@ import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -24,11 +30,19 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.util.List;
+import java.util.Locale;
+
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
 
     private GoogleMap mMap;
     private LocationManager locationManager;
     private LocationListener listener;
+    private double latitude;
+    private double longitude;
+    private boolean firsttime = true;
+    private String strAdd = "";
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,6 +51,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         setContentView(R.layout.activity_maps);
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -45,13 +60,41 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onLocationChanged(Location location) {
 
-                double latitude = location.getLatitude();
-                double longitude = location.getLongitude();
+                latitude = location.getLatitude();
+                longitude = location.getLongitude();
+                if(firsttime) {
+                    getCompleteAddressString(latitude, longitude);
+                    AlertDialog alertDialog = new AlertDialog.Builder(
+                            MapsActivity.this).create();
+
+                    // Setting Dialog Title
+                    alertDialog.setTitle("Your current location");
+
+                    // Setting Dialog Message
+                    alertDialog.setMessage(strAdd);
+
+                    // Setting Icon to Dialog
+
+
+                    // Setting OK Button
+                    alertDialog.setButton("OK", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            // Write your code here to execute after dialog closed
+                            Toast.makeText(getApplicationContext(), "Source Set", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+
+                    // Showing Alert Message
+                    alertDialog.show();
+
+
+                    firsttime = false;
+                }
                 LatLng latLng = new LatLng(latitude, longitude);
                 mMap.addMarker(new MarkerOptions().position(latLng));
                 mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
                 mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
-                
+
 
                 String s = ("\n " + location.getLongitude() + " " + location.getLatitude());
                 Toast.makeText(MapsActivity.this,s, Toast.LENGTH_SHORT).show();
@@ -83,6 +126,35 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
+
+
+    private String getCompleteAddressString(double LATITUDE, double LONGITUDE) {
+
+        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+        try {
+            List<Address> addresses = geocoder.getFromLocation(LATITUDE, LONGITUDE, 1);
+            if (addresses != null) {
+                Address returnedAddress = addresses.get(0);
+                StringBuilder strReturnedAddress = new StringBuilder("");
+
+                for (int i = 0; i < returnedAddress.getMaxAddressLineIndex(); i++) {
+                    strReturnedAddress.append(returnedAddress.getAddressLine(i)).append("\n");
+                }
+                strAdd = strReturnedAddress.toString();
+                Toast.makeText(this,  strReturnedAddress.toString(), Toast.LENGTH_SHORT).show();
+            } else {
+                Log.w("My Current loction", "No Address returned!");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Log.w("My Current address", "Canont get Address!");
+        }
+        return strAdd;
+    }
+
+
+
+
     void configure_button()
     {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -110,6 +182,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
 
+
+
     /**
      * Manipulates the map once available.
      * This callback is triggered when the map is ready to be used.
@@ -124,8 +198,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap = googleMap;
 
         // Add a marker in Sydney and move the camera
-        LatLng sydney = new LatLng(-34, 151);
-        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+        LatLng bengaluru = new LatLng(12.9716, 77.5946);
+        mMap.addMarker(new MarkerOptions().position(bengaluru).title("Marker in Sydney"));
+        mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(bengaluru));
     }
 }
