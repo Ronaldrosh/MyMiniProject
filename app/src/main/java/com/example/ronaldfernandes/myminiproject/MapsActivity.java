@@ -3,9 +3,11 @@ package com.example.ronaldfernandes.myminiproject;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Address;
@@ -13,9 +15,15 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import android.net.sip.SipAudioCall;
 import android.os.Build;
+import android.os.Vibrator;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
@@ -44,21 +52,34 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import java.util.List;
 import java.util.Locale;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback,GoogleMap.OnMapClickListener {
-
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapClickListener {
     private GoogleMap mMap;
+    public Location dest;
+    public Location sou;
+    public Ringtone r;
+    public boolean Confirmed = false;
     private LocationManager locationManager;
     private LocationListener listener;
     private double latitude;
     private double longitude;
+    public Button stop;
+    public float RADIUS = 1000;
     private boolean firsttime = true;
     public TextView destination;
+    public boolean searchclk = false;
     private String strAdd = "";
+    public LatLng latLngDestiny;
+    private Button confirm;
 
+
+    private LatLng destiny;
+    public LatLng latLngCurrent;
+    private Vibrator v;
 
     Marker marker = null;
     private EditText searchview;
     SharedPreferences prefs = null;
+    public Button changeradius;
 
 
     @Override
@@ -70,7 +91,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         setContentView(R.layout.activity_maps);
         searchview = (EditText) findViewById(R.id.searchView1);
-        destination = (TextView)findViewById(R.id.latlongLocation);
+        destination = (TextView) findViewById(R.id.latlongLocation);
+        destination.setText("Enter the desination in \nsearch location and confirm \n");
+        Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        r = RingtoneManager.getRingtone(getApplicationContext(), notification);
+        confirm = (Button) findViewById(R.id.button3);
+
+        v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        changeradius = (Button) findViewById(R.id.radius);
 
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
@@ -80,10 +108,28 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         listener = new LocationListener() {
             @Override
             public void onLocationChanged(Location location) {
+                if(Confirmed){
+
+                    float distanceInMeters = dest.distanceTo(sou);
+                    if(distanceInMeters<RADIUS){
+                        stop = (Button) findViewById(R.id.stop);
+                        stop.setVisibility(View.VISIBLE);
+                        if(!r.isPlaying()) {
+
+                            r.play();
+
+                            long[] pattern = {0, 100, 1000};
+                            v.vibrate(pattern, 0);
+
+                        }
+
+                        Toast.makeText(MapsActivity.this, "Wake Up Machha!", Toast.LENGTH_SHORT).show();
+                    }
+                }
 
                 latitude = location.getLatitude();
                 longitude = location.getLongitude();
-                if(firsttime) {
+                if (firsttime) {
                     getCompleteAddressString(latitude, longitude);
                     AlertDialog alertDialog = new AlertDialog.Builder(
                             MapsActivity.this).create();
@@ -107,15 +153,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                     // Showing Alert Message
                     alertDialog.show();
-                    LatLng latLng = new LatLng(latitude, longitude);
-                    mMap.addMarker(new MarkerOptions().position(latLng));
-                    mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+                    latLngCurrent = new LatLng(latitude, longitude);
+                    sou = new Location("");
+                    sou.setLatitude(latLngCurrent.latitude);
+                    sou.setLongitude(latLngCurrent.longitude);
+                    mMap.addMarker(new MarkerOptions().position(latLngCurrent));
+                    mMap.moveCamera(CameraUpdateFactory.newLatLng(latLngCurrent));
                     mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
 
 
                     firsttime = false;
                 }
-
 
 
                 //String s = ("\n " + location.getLongitude() + " " + location.getLatitude());
@@ -143,42 +191,56 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         configure_button();
 
 
-
-
-
+    }
+    public  void ChangeRadius(View v){
+        RADIUS = 300;
+        Toast.makeText(this, "Radius changed to "+RADIUS, Toast.LENGTH_SHORT).show();
     }
 
-
-
-
-
     public void onClick(View v) {
+        searchclk = true;
 
-            String g = searchview.getText().toString();
+        String g = searchview.getText().toString();
 
-            Geocoder geocoder = new Geocoder(getBaseContext());
-            List<Address> addresses = null;
+        Geocoder geocoder = new Geocoder(getBaseContext());
+        List<Address> addresses = null;
 
-            try {
-                // Getting a maximum of 3 Address that matches the input
-                // text
-                addresses = geocoder.getFromLocationName(g, 3);
-                if (addresses != null && !addresses.equals(""))
-                    search(addresses);
+        try {
+            // Getting a maximum of 3 Address that matches the input
+            // text
+            addresses = geocoder.getFromLocationName(g, 3);
+            if (addresses != null && !addresses.equals(""))
+                search(addresses);
 
-            } catch (Exception e) {
+        } catch (Exception e) {
 
-            }
+        }
+
+    }
+    public void stop()
+    {
+        v.cancel();
+        locationManager.removeUpdates(listener);
+        locationManager = null;
+    }
+    public void WokeUp(View v)
+    {
+        r.stop();
+        stop();
+
+
+
 
     }
 
 
     protected void search(List<Address> addresses) {
+        changeradius.setVisibility(View.VISIBLE);
 
         Address address = (Address) addresses.get(0);
         longitude = address.getLongitude();
         latitude = address.getLatitude();
-        LatLng latLng = new LatLng(address.getLatitude(), address.getLongitude());
+        latLngDestiny = new LatLng(address.getLatitude(), address.getLongitude());
 
         String addressText = String.format(
                 "%s, %s",
@@ -187,21 +249,19 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         MarkerOptions markerOptions = new MarkerOptions();
 
-        markerOptions.position(latLng);
+        markerOptions.position(latLngDestiny);
         markerOptions.title(addressText);
 
         mMap.clear();
         mMap.addMarker(markerOptions);
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLngDestiny));
         mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
 
 
-        getCompleteAddressString(address.getLatitude(),address.getLongitude());
+        getCompleteAddressString(address.getLatitude(), address.getLongitude());
 
 
     }
-
-
 
 
     private String getCompleteAddressString(double LATITUDE, double LONGITUDE) {
@@ -217,8 +277,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     strReturnedAddress.append(returnedAddress.getAddressLine(i)).append("\n");
                 }
                 strAdd = strReturnedAddress.toString();
-                Toast.makeText(this,  strReturnedAddress.toString(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, strReturnedAddress.toString(), Toast.LENGTH_SHORT).show();
                 destination.setText(strAdd);
+                if (searchclk) {
+                    confirm.setVisibility(View.VISIBLE);
+                }
             } else {
                 Log.w("My Current loction", "No Address returned!");
             }
@@ -230,14 +293,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 
-
-
-    void configure_button()
-    {
+    void configure_button() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.INTERNET}
-                        ,10);
+                requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.INTERNET}
+                        , 10);
             }
             return;
         }
@@ -248,7 +308,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        switch (requestCode){
+        switch (requestCode) {
             case 10:
                 configure_button();
                 break;
@@ -256,9 +316,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 break;
         }
     }
-
-
-
 
 
     /**
@@ -281,20 +338,29 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.moveCamera(CameraUpdateFactory.newLatLng(bengaluru));
     }
 
-        @Override
-        public void onMapClick(LatLng point) {
-            marker = mMap.addMarker(new MarkerOptions().position(point));
+    @Override
+    public void onMapClick(LatLng point) {
+        marker = mMap.addMarker(new MarkerOptions().position(point));
 
 /* This code will save your location coordinates in SharedPrefrence when you click on the map and later you use it  */
-            prefs.edit().putString("Lat",String.valueOf(point.latitude)).commit();
-            prefs.edit().putString("Lng",String.valueOf(point.longitude)).commit();
-            Toast.makeText(this, "Map clicked [" + point.latitude + " / " + point.longitude + "]", Toast.LENGTH_SHORT).show();
-            //Then pass LatLng to other activity
-            getCompleteAddressString(point.latitude,point.longitude);
+        prefs.edit().putString("Lat", String.valueOf(point.latitude)).commit();
+        prefs.edit().putString("Lng", String.valueOf(point.longitude)).commit();
+        Toast.makeText(this, "Map clicked [" + point.latitude + " / " + point.longitude + "]", Toast.LENGTH_SHORT).show();
+        //Then pass LatLng to other activity
+        getCompleteAddressString(point.latitude, point.longitude);
 
-        }
+    }
 
 
+    public void Confirm_Destination(View v) {
+        Toast.makeText(this, "Sit back and relax!", Toast.LENGTH_LONG).show();
+        destiny = latLngDestiny;
+        dest = new Location("");
+        dest.setLatitude(destiny.latitude);
+        dest.setLongitude(destiny.longitude);
+        Confirmed = true;
+
+    }
 
 
 }
