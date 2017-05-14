@@ -227,10 +227,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     {
         r.stop();
         stop();
-
-
-
-
     }
 
 
